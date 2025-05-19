@@ -19,27 +19,20 @@ r_signal, g_signal, b_signal = [], [], []
 chrom_signal, chrom_time = [], []
 pos_signal, pos_time = [], []
 raw_bpm_values = []  # To hold raw BPM values for smoothing
+smooth_bpm_values = []
 
 # ——— Plot Setup ———
 plt.style.use("ggplot")
 fig, ax = plt.subplots()
-(line_r,) = ax.plot([], [], color="red", label="Red")
-(line_g,) = ax.plot([], [], color="green", label="Green")
-(line_b,) = ax.plot([], [], color="blue", label="Blue")
+(line_bpm,) = ax.plot([], [], "r-", label="BPM")
+bpm_text = ax.text(0.75, 0.9, "", transform=ax.transAxes, fontsize=12)
 ax.set_xlim(0, 300)
-ax.set_ylim(0, 255)
+ax.set_ylim(40, 180)
 ax.set_xlabel("Frame")
-ax.set_ylabel("Intensity")
+ax.set_ylabel("BPM")
 ax.legend(loc="upper left")
 
-ax2 = ax.twinx()
-(line_chrom,) = ax2.plot([], [], "m--", label="CHROM")
-(line_pos,) = ax2.plot([], [], "c--", label="POS")
-bpm_text = ax.text(0.75, 0.9, "", transform=ax.transAxes, fontsize=12)
-ax2.set_ylim(-0.05, 0.05)
-ax2.set_ylabel("Pulse Signal")
-ax2.legend(loc="upper right")
-ax.set_title("RGB + CHROM + POS + Ensemble BPM")
+ax.set_title("Real-Time Heart Rate (BPM)")
 
 
 # ——— Kalman Filter Implementation ———
@@ -141,25 +134,20 @@ def estimate_bpm_ensemble():
 
 # ——— Animation ———
 def update(frame):
-    if not r_signal:
-        return line_r, line_g, line_b, line_chrom, line_pos, bpm_text
-
-    line_r.set_data(range(len(r_signal)), r_signal)
-    line_g.set_data(range(len(g_signal)), g_signal)
-    line_b.set_data(range(len(b_signal)), b_signal)
-    line_chrom.set_data(range(len(chrom_signal)), chrom_signal)
-    line_pos.set_data(range(len(pos_signal)), pos_signal)
-
-    ax.set_xlim(max(0, len(r_signal) - 300), len(r_signal))
-    ax2.set_xlim(ax.get_xlim())
-
     bpm = estimate_bpm_ensemble()
+
     if bpm:
         raw_bpm_values.append(bpm)
         smoothed_bpm = kf.update(bpm)  # Apply Kalman filter smoothing
+        smooth_bpm_values.append(smoothed_bpm)
+        line_bpm.set_data(range(len(smooth_bpm_values)), smooth_bpm_values)
+
+        ax.set_xlim(
+            max(0, len(smooth_bpm_values) - 300), len(smooth_bpm_values) + 100
+        )
         bpm_text.set_text(f"BPM: {int(smoothed_bpm)}" if smoothed_bpm else "")
 
-    return line_r, line_g, line_b, line_chrom, line_pos, bpm_text
+    return line_bpm, bpm_text
 
 
 # ——— Initialize Kalman Filter for BPM smoothing ———
@@ -167,7 +155,7 @@ kf = KalmanFilter(
     process_variance=1e-5, measurement_variance=1.0, initial_estimate=60
 )
 
-ani = FuncAnimation(fig, update, interval=50, blit=True)
+ani = FuncAnimation(fig, update, interval=50, blit=False)
 plt.ion()
 plt.show()
 
@@ -202,25 +190,6 @@ while True:
             chrom_time.append(time.time())
             pos_signal.append(0)
             pos_time.append(time.time())
-
-        bpm = estimate_bpm_ensemble()
-        if bpm:
-            raw_bpm_values.append(bpm)
-            smoothed_bpm = kf.update(bpm)  # Apply Kalman filter smoothing
-            bpm_text.set_text(
-                f"BPM: {int(smoothed_bpm)}" if smoothed_bpm else ""
-            )
-        txt = f"BPM: {bpm}"
-        cv2.putText(
-            frame,
-            txt,
-            (100, 100),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.5,
-            (0, 0, 255),
-            2,
-            cv2.LINE_AA,
-        )
 
         frame = detector.draw_faces(
             frame, preds, draw_landmarks=True, show_confidence=True

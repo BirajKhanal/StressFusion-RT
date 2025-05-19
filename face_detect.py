@@ -85,8 +85,6 @@ class FaceDetectorYunet:
         prediction["y2"] = int(c[1, 1].round())
         prediction["face_width"] = c[1, 0] - c[0, 0]
         prediction["face_height"] = c[1, 1] - c[0, 1]
-        # prediction['face_width'] = prediction['x2'] - prediction['x1']
-        # prediction['face_height'] = prediction['y2'] - prediction['y1']
         prediction["area"] = (
             prediction["face_width"] * prediction["face_height"]
         )
