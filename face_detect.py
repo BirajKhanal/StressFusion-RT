@@ -33,7 +33,6 @@ class FaceDetectorYunet:
             if draw_landmarks:
                 landmarks = face["landmarks"]
                 for landmark in landmarks.values():
-                    print(landmark)
                     radius = 5
                     thickness = -1
                     cv2.circle(
