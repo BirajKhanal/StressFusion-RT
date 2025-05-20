@@ -1,15 +1,16 @@
 import time
 
 import cv2
+import dlib
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.animation import FuncAnimation
 from scipy.signal import butter, filtfilt
 
-from face_detect import FaceDetectorYunet
-
 # ——— Init ———
-detector = FaceDetectorYunet()
+detector = dlib.get_frontal_face_detector()  # type: ignore
+predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")  # type: ignore
+
 cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
@@ -64,30 +65,51 @@ class KalmanFilter:
 
 
 # ——— Helpers ———
-def extract_forehead_roi(frame, f):
-    x1, y1, x2, y2 = f["x1"], f["y1"], f["x2"], f["y2"]
-    fh, fw = y2 - y1, x2 - x1
-    top = y1 + int(0.1 * fh)
-    bottom = y1 + int(0.3 * fh)
-    left = x1 + int(0.3 * fw)
-    right = x1 + int(0.7 * fw)
-    h, w, _ = frame.shape
-    top, bottom = max(0, top), min(h, bottom)
-    left, right = max(0, left), min(w, right)
-    return frame[top:bottom, left:right], ((left, top), (right, bottom))
+def get_smooth_outer_contour(landmarks):
+    jaw = [
+        (landmarks.part(i).x, landmarks.part(i).y) for i in range(17)
+    ]  # 0-16
+    left_eyebrow = [
+        (landmarks.part(i).x, landmarks.part(i).y) for i in range(26, 21, -1)
+    ]  # 26 to 22
+    right_eyebrow = [
+        (landmarks.part(i).x, landmarks.part(i).y) for i in range(17, 22)
+    ]  # 17 to 21
+
+    points = jaw + left_eyebrow + right_eyebrow[::-1]
+    return np.array(points)
+
+
+def extract_face_roi_mean(frame, landmarks):
+    # Create mask
+    points = get_smooth_outer_contour(landmarks)
+    mask = np.zeros(frame.shape[:2], dtype=np.uint8)
+    cv2.fillPoly(mask, [points], (255,))
+
+    # Extract masked pixels for each channel
+    b_channel, g_channel, r_channel = cv2.split(frame)
+    b_values = b_channel[mask == 255]
+    g_values = g_channel[mask == 255]
+    r_values = r_channel[mask == 255]
+
+    b_mean = np.mean(b_values) if len(b_values) > 0 else 0
+    g_mean = np.mean(g_values) if len(g_values) > 0 else 0
+    r_mean = np.mean(r_values) if len(r_values) > 0 else 0
+
+    return b_mean, g_mean, r_mean, mask
 
 
 def bandpass(sig, fs=30, low=0.7, high=3.0, order=6):
     nyq = 0.5 * fs
-    b, a = butter(order, [low / nyq, high / nyq], btype="band")
+    b, a = butter(order, [low / nyq, high / nyq], btype="band")  # type: ignore
     return filtfilt(b, a, sig)
 
 
 def chrom_recon(r, g, b):
     # your existing CHROM
     rn, gn, bn = r / np.mean(r), g / np.mean(g), b / np.mean(b)
-    X = rn - gn
-    Y = rn + gn - 2 * bn
+    X = 3 * rn - 2 * gn
+    Y = 1.5 * rn + gn - 1.5 * bn
     α = np.std(X) / np.std(Y)
     return X - α * Y
 
@@ -165,16 +187,30 @@ while True:
     if not ret:
         break
 
-    preds = detector.detect(frame)
-    if preds:
-        f = preds[0]
-        roi, coords = extract_forehead_roi(frame, f)
-        cv2.rectangle(frame, coords[0], coords[1], (255, 255, 0), 1)
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = detector(gray)
+    if faces:
+        face = faces[0]  # Use first detected face
+        shape = predictor(gray, face)
 
-        b, g, r = cv2.mean(roi)[:3]
+        # Get mean BGR from full face ROI mask
+        b, g, r, face_mask = extract_face_roi_mean(frame, shape)
+
+        # show mask overlay (transparent green)
+        overlay = frame.copy()
+        overlay[face_mask == 255] = (0, 255, 0)
+        alpha = 0.1
+        cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+
         r_signal.append(r)
         g_signal.append(g)
         b_signal.append(b)
+
+        # Draw landmarks
+        for i in range(68):
+            x = shape.part(i).x
+            y = shape.part(i).y
+            cv2.circle(frame, (x, y), 1, (0, 255, 0), -1)
 
         if len(r_signal) >= 10:
             arr = np.array(r_signal), np.array(g_signal), np.array(b_signal)
@@ -190,10 +226,6 @@ while True:
             chrom_time.append(time.time())
             pos_signal.append(0)
             pos_time.append(time.time())
-
-        frame = detector.draw_faces(
-            frame, preds, draw_landmarks=True, show_confidence=True
-        )
 
     cv2.imshow("Face+Ensemble rPPG", frame)
     if cv2.waitKey(1) & 0xFF == ord("q"):
