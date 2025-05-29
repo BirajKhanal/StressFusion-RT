@@ -7,8 +7,8 @@ from utils.landmarks import get_smooth_outer_contour
 
 class FaceDetector:
     def __init__(self, predictor_path):
-        self.detector = dlib.get_frontal_face_detector()
-        self.predictor = dlib.shape_predictor(predictor_path)
+        self.detector = dlib.get_frontal_face_detector()  # type: ignore
+        self.predictor = dlib.shape_predictor(predictor_path)  # type: ignore
 
     def detect(self, gray_frame):
         return self.detector(gray_frame)
