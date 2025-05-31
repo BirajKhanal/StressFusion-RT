@@ -95,6 +95,12 @@ def main():
     yawn_timestamps = deque()
 
     feature_names = ['hr', 'blink', 'yawn']
+    stress_label = {
+        '-1': 'Waiting...',
+        '0': 'Baseline',
+        '1': 'Mild Stress',
+        '2': 'High Stress'
+    }
 
     video_col, graph_col = st.columns([1, 1])
     frame_placeholder = video_col.image(np.zeros((480, 640, 3), dtype=np.uint8), use_container_width=True)
@@ -193,7 +199,7 @@ def main():
 
             last_prediction_time = now
 
-        stress_display = str(stress_history[-1]) if stress_history else "Waiting..."
+        stress_display = str(stress_history[-1]) if stress_history else "-1"
         bpm_display = f"{int(smoothed_bpm)}" if smoothed_bpm and not np.isnan(smoothed_bpm) else "Calculating..."
         blink_display = count_events(blink_timestamps)
         yawn_display = count_events(yawn_timestamps)
@@ -207,7 +213,7 @@ def main():
             <div><b>Heart Rate (BPM)</b><br>{bpm_display}</div>
             <div><b>Yawn Count (per min)</b><br>{yawn_display}</div>
             <div><b>Blink Count (per min)</b><br>{blink_display}</div>
-            <div><b>Stress Level</b><br>{stress_display}</div>
+            <div><b>Stress Level</b><br>{stress_label[stress_display]}</div>
         </div>
         """, unsafe_allow_html=True)
 

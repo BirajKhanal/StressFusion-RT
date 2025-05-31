@@ -1,18 +1,24 @@
-# StressFusion‑RT: Real‑Time Embedded Multi‑Modal Stress Estimation via rPPG, Yawning & Blink Dynamics
+# StressFusion-RT
 
-## Project Scope
+**StressFusion-RT** is a lightweight, real-time stress detection system that leverages webcam video to estimate physiological and behavioral signals such as heart rate via remote photoplethysmography (rPPG), blink frequency, and yawn rate. These features are combined to classify stress levels into baseline, mild stress, and high stress categories. The system includes a live, interactive dashboard built with Streamlit for visualization and monitoring.
 
--   **Cue 1 (rPPG→HRV):** Extract green-channel pulse from forehead ROI with CHROM/POS; compute HRV (SDNN, RMSSD) as stress biomarkers.
--   **Cue 2 (Yawn Detection):** Compute Mouth Aspect Ratio (MAR) from facial landmarks; classify yawns with an SVM or Random Forest on MAR time-series windows.
--   **Cue 3 (Blink Irregularity):** Use Eye Aspect Ratio (EAR) to timestamp closures; derive inter-blink interval variance and long-closure counts as fatigue indicators.
+## 🚀 How to Run
 
-## Models and fusion strategies
+1. **Clone the repository**:
 
--   **rPPG** → Extract peak intervals → derive HRV features → **Linear Regression** or **Random Forest Regressor** to map to stress score.
--   **Yawn** → MAR time-window features → **SVM** (RBF kernel) for binary yawn detection; count yawn rate per minute.
--   **Blink** → EAR closures → compute mean/variance of inter-blink intervals → **Logistic Regression** (binarize high vs low irregularity) or feed numeric features into the same regressor as rPPG.
--   **Fusion** → Concatenate all cue-level features into a feature vector → train a **Random Forest** for a continuous stress score.
-
+```bash
+git clone https://github.com/BirajKhanal/StressFusion-RT.git
+cd StressFusion-RT
 ```
-Note: The datasets for the project will be available on request.
+
+2. **Install dependencies**:
+
+```bash
+pip install -r requirements.txt
+```
+
+3. **Run the Streamlit app**:
+
+```bash
+streamlit run main.py
 ```
