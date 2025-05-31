@@ -14,15 +14,15 @@ def chrom_recon(r, g, b):
     rn, gn, bn = r / np.mean(r), g / np.mean(g), b / np.mean(b)
     X = 3 * rn - 2 * gn
     Y = 1.5 * rn + gn - 1.5 * bn
-    α = np.std(X) / np.std(Y)
-    return X - α * Y
+    alpha = np.std(X) / np.std(Y)
+    return X - alpha * Y
 
 
 def pos_recon(r, g, b):
     rn, gn, bn = r / np.mean(r), g / np.mean(g), b / np.mean(b)
-    Xs = 2 * rn - gn - bn
+    Xs = gn + bn - 2 * rn
     Ys = gn - bn
-    return Xs / np.std(Xs) - Ys / np.std(Ys)
+    return Xs / np.std(Xs) + Ys / np.std(Ys)
 
 
 def estimate_fps(timestamps):
