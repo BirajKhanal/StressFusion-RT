@@ -138,7 +138,7 @@ def main():
 
             # Yawn detection with debounce (rising edge detection)
             mar = mouth_aspect_ratio(shape)
-            YAWN_THRESHOLD = 0.6  # Adjust if needed
+            YAWN_THRESHOLD = 0.4  # Adjust if needed
 
             yawn_occurred = False
             if mar > YAWN_THRESHOLD:
